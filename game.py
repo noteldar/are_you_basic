@@ -1,6 +1,8 @@
 import json
 import random
 import os
+import time
+import signal
 from cost_function import evaluate_text
 
 
@@ -47,10 +49,43 @@ def display_intro():
     print("3. Win $20 for your second consecutive win")
     print("4. Win $50 for your third consecutive win or more")
     print("5. If your response is basic, you lose your consecutive wins")
-    print("6. Game over when you run out of money")
+    print("6. You have 15 seconds to answer each question")
+    print("7. Game over when you run out of money")
     print("\nLet's test if you're BASIC...")
     print("=" * 50)
     input("\nPress Enter to start...")
+
+
+class TimeoutException(Exception):
+    """Exception raised when timeout occurs."""
+
+    pass
+
+
+def timeout_handler(signum, frame):
+    """Handler for timeout signal."""
+    raise TimeoutException("Time's up!")
+
+
+def timed_input(prompt, timeout=15):
+    """Get input with a timeout."""
+    # Print the prompt
+    print(f"{prompt} (You have {timeout} seconds)")
+
+    # Set up the timeout signal
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout)
+
+    try:
+        user_input = input("Your response: ")
+        # Cancel the alarm
+        signal.alarm(0)
+        return user_input
+    except TimeoutException:
+        # Cancel the alarm
+        signal.alarm(0)
+        print("\nTime's up!")
+        return None
 
 
 def main():
@@ -72,15 +107,21 @@ def main():
 
         # Select random question
         question = random.choice(questions)
-        print(f"\nQuestion: {question}\n")
+        print(f"\nQuestion: {question}")
 
-        # Get user response
-        user_response = input("Your response: ")
+        # Get user response with timeout
+        user_response = timed_input("Answer now", 15)
 
-        # Skip empty responses
-        if not user_response.strip():
-            print("You didn't enter anything. Try again.")
-            bank += 1  # Refund the cost
+        # Handle timeout or empty response
+        if user_response is None or not user_response.strip():
+            consecutive_wins = 0  # Reset consecutive wins
+            print("\n" + "=" * 50)
+            if user_response is None:
+                print("TIME'S UP! TOO SLOW!")
+            else:
+                print("EMPTY RESPONSE! TOO BASIC!")
+            print("=" * 50)
+            print(f"You lose this round. Bank: ${bank}")
             input("\nPress Enter to continue...")
             continue
 
